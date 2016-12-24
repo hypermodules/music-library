@@ -1,0 +1,32 @@
+{
+  "name": "music-library",
+  "version": "1.0.0",
+  "description": "Music library experiments",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hypermodules/music-library.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hypermodules/music-library/issues"
+  },
+  "homepage": "https://github.com/hypermodules/music-library#readme",
+  "dependencies": {
+    "flush-write-stream": "^1.0.2",
+    "folder-walker": "^3.0.0",
+    "level": "^1.5.0",
+    "musicmetadata": "^2.0.5",
+    "ndjson": "^1.5.0",
+    "pump": "^1.0.2",
+    "through2-filter": "^2.0.0",
+    "through2-spy": "^2.0.0"
+  },
+  "devDependencies": {
+    "standard": "^8.6.0"
+  }
+}
