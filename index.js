@@ -13,6 +13,7 @@ var level = require('level')
 var byteStream = require('byte-stream')
 var LevelBatch = require('level-batch-stream')
 var map = require('through2-map')
+var bytewise = require('bytewise')
 var parallel = require('concurrent-writable')
 var count = 0
 var spy = require('through2-spy').objCtor(obj => {
@@ -20,31 +21,31 @@ var spy = require('through2-spy').objCtor(obj => {
   console.dir(obj, {colors: true})
 })
 
-var db = level('./hyperamp-library', { valueEncoding: 'json' })
+var db = level('./hyperamp-library', {
+  keyEncoding: bytewise,
+  valueEncoding: 'json'
+})
 var libPath = '/Volumes/uDrive/Plex/Music'
 
 var fileStream = walker([libPath])
-
 var filterInvalid = filter.obj(isValidFile)
-
-var filterAdded = filter.obj()
+var filterAdded = through.obj(dbStat)
 
 var levelBatch = new LevelBatch(db)
-var paralleLevelBatch = parallel(levelBatch, 10)
-
 var makeBatch = map.obj((chunk) => ({
   type: 'put',
-  key: chunk.filepath,
+  key: [chunk.relname.toLowerCase(), chunk.filepath],
   value: chunk
 }))
-
-var batcher = byteStream({time: 30, limit: 100})
+// Pretty good, but need to tune
+var batcher = byteStream({time: 200, limit: 100})
+var paralleLevelBatch = parallel(levelBatch, 10)
 
 function addNew (cb) {
   pump(
     fileStream,
     filterInvalid,
-    through.obj(dbStat),
+    filterAdded,
     parseMetaData(),
     makeBatch,
     batcher,
@@ -56,7 +57,7 @@ function addNew (cb) {
 
 function printDb (cb) {
   pump(
-    db.createReadStream(),
+    db.createKeyStream(),
     spy(),
     terminateObjStream(),
     cb
@@ -64,6 +65,7 @@ function printDb (cb) {
 }
 
 printDb(done)
+// addNew(done)
 
 function terminateObjStream () {
   return pumpify.obj(ndjson.serialize(), fs.createWriteStream('/dev/null'))
