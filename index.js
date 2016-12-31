@@ -30,7 +30,7 @@ var files = sub(db, 'files', {
 })
 var indexEncoding = {
   keyEncoding: bytewise,
-  valueEncoding: 'json'
+  valueEncoding: bytewise
 }
 
 var index = {
@@ -92,7 +92,7 @@ function printDb (cb) {
 
 function printIndex (cb) {
   pump(
-    files.byAlbumByArtistYear.createReadStream(),
+    index.albumArtistYear.createReadStream(),
     spy(),
     terminateObjStream(),
     cb
