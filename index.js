@@ -89,7 +89,7 @@ MusicLibrary.prototype.scan = function (opts, cb) {
     }
   }
 
-  pump(
+  return pump(
     fileStream,
     filterInvalid,
     filterAdded,
