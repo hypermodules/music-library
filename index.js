@@ -16,6 +16,17 @@ var pump = require('pump')
 var fs = require('fs')
 var mm = require('musicmetadata')
 
+function keyFn (filePath) {
+  return path.normalize(filePath).split(path.sep)
+}
+
+var validExtensions = ['m4a', 'mp3']
+function isValidFile (data) {
+  if (data.type !== 'file') return false
+  let ext = path.extname(data.basename).substring(1)
+  return validExtensions.includes(ext)
+}
+
 function MusicLibrary (location, paths, opts) {
   if (!(this instanceof MusicLibrary)) return new MusicLibrary(location, paths, opts)
   if (!opts) opts = {}
@@ -36,12 +47,34 @@ function MusicLibrary (location, paths, opts) {
       'meta.title',
       'filepath'
     ])
-  this._scanning = false
+}
+
+MusicLibrary.prototype.parseMetadata = function (filepath, opts, cb) {
+  if (typeof opts === 'function') {
+    cb = opts
+    opts = {}
+  }
+  var fileStream = fs.createReadStream(filepath)
+  mm(fileStream, opts, handleMM)
+
+  function handleMM (err, meta) {
+    fileStream.close()
+    if (!meta) meta = {}
+    if (err) {
+      err.message += ` (file: ${filepath})`
+      meta.error = err
+    }
+
+    if (!meta.title) {
+      var basename = path.basename(filepath)
+      var ext = path.extname(basename)
+      meta.title = path.basename(basename, ext)
+    }
+    cb(null, meta)
+  }
 }
 
 MusicLibrary.prototype.scan = function (opts, cb) {
-  if (this._scanning) return cb(new Error('Can\'t scan! Already scanning.'))
-  this._scanning = true
   if (typeof opts === 'function') {
     cb = opts
     opts = {}
@@ -70,15 +103,16 @@ MusicLibrary.prototype.scan = function (opts, cb) {
   }
 
   function operation (chunk) {
+    var key = keyFn(chunk.filepath)
     return {
       type: 'put',
-      key: [chunk.filepath],
+      key: key,
       value: chunk
     }
   }
 
   function dbStat (chunk, enc, cb) {
-    db.get([chunk.filepath], addFound.bind(this))
+    db.get(keyFn(chunk.filepath), addFound.bind(this))
 
     function addFound (err, value) {
       if (err && err.notFound) {
@@ -101,36 +135,42 @@ MusicLibrary.prototype.scan = function (opts, cb) {
   )
 }
 
-MusicLibrary.prototype.parseMetadata = function (filepath, opts, cb) {
-  if (typeof opts === 'function') {
-    cb = opts
-    opts = {}
-  }
-  var fileStream = fs.createReadStream(filepath)
-  mm(fileStream, opts, handleMM)
+MusicLibrary.prototype.clean = function (opts, cb) {
+  var db = this.db
+  var dbStream = db.createReadStream
+  var filterStated = through.obj(fsStat)
+  var makeOp = map.obj(operation)
+  var batcher = byteStream({time: opts.time || 200, limit: opts.limit || 100})
+  var levelBatch = new LevelBatch(db)
+  var paralleLevelBatch = parallel(levelBatch, opts.parallel || 10)
 
-  function handleMM (err, meta) {
-    fileStream.close()
-    if (!meta) meta = {}
-    if (err) {
-      err.message += ` (file: ${filepath})`
-      meta.error = err
+  function operation (chunk) {
+    var key = keyFn(chunk.value.filepath)
+    return {
+      type: 'del',
+      key: key
     }
-
-    if (!meta.title) {
-      var basename = path.basename(filepath)
-      var ext = path.extname(basename)
-      meta.title = path.basename(basename, ext)
-    }
-    cb(null, meta)
   }
-}
 
-var validExtensions = ['m4a', 'mp3']
-function isValidFile (data) {
-  if (data.type !== 'file') return false
-  let ext = path.extname(data.basename).substring(1)
-  return validExtensions.includes(ext)
+  function fsStat (chunk, enc, cb) {
+    fs.stat(chunk.value.filepath, pushMissing.bind(this))
+
+    function pushMissing (err, value) {
+      if (err) {
+        this.push(chunk)
+        return cb()
+      }
+    }
+  }
+
+  return pump(
+    dbStream,
+    filterStated,
+    makeOp,
+    batcher,
+    paralleLevelBatch,
+    cb
+  )
 }
 
 module.exports = MusicLibrary
