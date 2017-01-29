@@ -33,9 +33,12 @@ function MusicLibrary (location, paths, opts) {
   if (!paths) paths = []
   if (!Array.isArray(paths)) paths = [paths]
 
+  var dbLevel = Level(path.join(location, 'db'))
+  var idbLevel = Level(path.join(location, 'idb'))
+
   this.paths = paths
-  this.db = sub('files', Level(path.join(location, 'db')))
-  this.idb = Level(path.join(location, 'idb'))
+  this.db = sub(dbLevel, 'files', {keyEncoding: bytewise, valueEncoding: 'json'})
+  this.idb = idbLevel
   this.index = Idx(this.db, this.idb, {keyEncoding: bytewise})
     .by('AlbumArtistYear', [
       'meta.albumartist',
@@ -50,10 +53,8 @@ function MusicLibrary (location, paths, opts) {
 }
 
 MusicLibrary.prototype.parseMetadata = function (filepath, opts, cb) {
-  if (typeof opts === 'function') {
-    cb = opts
-    opts = {}
-  }
+  if (typeof opts === 'function') return this.parseMetadata(filepath, {}, opts)
+  console.log(filepath)
   var fileStream = fs.createReadStream(filepath)
   mm(fileStream, opts, handleMM)
 
@@ -75,10 +76,7 @@ MusicLibrary.prototype.parseMetadata = function (filepath, opts, cb) {
 }
 
 MusicLibrary.prototype.scan = function (opts, cb) {
-  if (typeof opts === 'function') {
-    cb = opts
-    opts = {}
-  }
+  if (typeof opts === 'function') return this.scan({}, opts)
 
   var self = this
   var db = this.db
@@ -92,11 +90,11 @@ MusicLibrary.prototype.scan = function (opts, cb) {
   var parseMetaData = through.obj(parser)
 
   function parser (chunk, enc, cb) {
-    self.parseMetadata(chunk, handleParse.bind(this))
+    self.parseMetadata(chunk.filepath, handleParse.bind(this))
 
     function handleParse (err, meta) {
       if (err) return cb(err)
-      // delete meta.picture
+      delete meta.picture
       this.push(extend(chunk, {meta: meta}))
       cb()
     }
@@ -136,12 +134,12 @@ MusicLibrary.prototype.scan = function (opts, cb) {
 }
 
 MusicLibrary.prototype.clean = function (opts, cb) {
-  var db = this.db
-  var dbStream = db.createReadStream
+  if (typeof opts === 'function') return this.clean({}, opts)
+  var dbStream = this.db.createReadStream()
   var filterStated = through.obj(fsStat)
   var makeOp = map.obj(operation)
   var batcher = byteStream({time: opts.time || 200, limit: opts.limit || 100})
-  var levelBatch = new LevelBatch(db)
+  var levelBatch = new LevelBatch(this.db)
   var paralleLevelBatch = parallel(levelBatch, opts.parallel || 10)
 
   function operation (chunk) {
@@ -156,10 +154,8 @@ MusicLibrary.prototype.clean = function (opts, cb) {
     fs.stat(chunk.value.filepath, pushMissing.bind(this))
 
     function pushMissing (err, value) {
-      if (err) {
-        this.push(chunk)
-        return cb()
-      }
+      if (err) this.push(chunk)
+      return cb()
     }
   }
 
