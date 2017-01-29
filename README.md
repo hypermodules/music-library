@@ -1,2 +1,3 @@
 # music-library
-Music library experiments 
+
+Manage a set of folders of music as a music library.

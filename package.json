@@ -1,7 +1,7 @@
 {
   "name": "music-library",
-  "version": "1.0.0",
-  "description": "Music library experiments",
+  "version": "0.0.1",
+  "description": "Manage a set of folders as a music library",
   "main": "index.js",
   "scripts": {
     "test": "run-s test:*",
