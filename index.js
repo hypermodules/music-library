@@ -141,7 +141,6 @@ MusicLibrary.prototype.clean = function (opts, cb) {
   var batcher = byteStream({time: opts.time || 200, limit: opts.limit || 100})
   var levelBatch = new LevelBatch(this.db)
   var paralleLevelBatch = parallel(levelBatch, opts.parallel || 10)
-
   var paths = this.paths
 
   function operation (chunk) {
@@ -153,7 +152,7 @@ MusicLibrary.prototype.clean = function (opts, cb) {
   }
 
   function fsStat (chunk, enc, cb) {
-    if (!paths.some(areIncluded)) {
+    if (!paths.some(inPaths)) {
       this.push(chunk)
       return cb()
     }
@@ -164,8 +163,8 @@ MusicLibrary.prototype.clean = function (opts, cb) {
       return cb()
     }
 
-    function areIncluded (path) {
-      return path === chunk.value.root
+    function inPaths (path) {
+      return chunk.value.root === path
     }
   }
 
