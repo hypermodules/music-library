@@ -142,6 +142,8 @@ MusicLibrary.prototype.clean = function (opts, cb) {
   var levelBatch = new LevelBatch(this.db)
   var paralleLevelBatch = parallel(levelBatch, opts.parallel || 10)
 
+  var paths = this.paths
+
   function operation (chunk) {
     var key = keyFn(chunk.value.filepath)
     return {
@@ -151,11 +153,19 @@ MusicLibrary.prototype.clean = function (opts, cb) {
   }
 
   function fsStat (chunk, enc, cb) {
+    if (!paths.some(areIncluded)) {
+      this.push(chunk)
+      return cb()
+    }
     fs.stat(chunk.value.filepath, pushMissing.bind(this))
 
     function pushMissing (err, value) {
       if (err) this.push(chunk)
       return cb()
+    }
+
+    function areIncluded (path) {
+      return path === chunk.value.root
     }
   }
 
