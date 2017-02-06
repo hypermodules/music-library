@@ -1,6 +1,6 @@
 {
   "name": "music-library",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Manage a set of folders as a music library",
   "main": "index.js",
   "scripts": {
