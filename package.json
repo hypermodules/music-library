@@ -39,8 +39,8 @@
     "@tap-format/spec": "^0.2.0",
     "dependency-check": "^2.7.0",
     "npm-run-all": "^4.0.0",
-    "snazzy": "^6.0.0",
-    "standard": "^8.6.0",
+    "snazzy": "^7.0.0",
+    "standard": "^10.0.2",
     "tape": "^4.6.3"
   }
 }
